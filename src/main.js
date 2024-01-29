@@ -114,7 +114,7 @@ const lightbox = new SimpleLightbox('.gallery a', {
 
 function searchPicturesByParams({ query, page = 1, perPage }) {
   return axios
-    .get(`${BASE_URL}`, {
+    .get(`${BASE_URL}/`, {
       params: {
         key: API_KEY,
         q: query,
