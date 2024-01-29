@@ -17,33 +17,102 @@ const refs = {
   loadMoreBtn: document.querySelector('[data-action="load-more"]'),
 };
 
-// const hiddenClass = 'is-hidden';
+const hiddenClass = 'is-hidden';
+const params = {
+  page: 1,
+  query: '',
+  maxPage: 0,
+  perPage: 40,
+};
 
 refs.form.addEventListener('submit', handleSearch);
 
 async function handleSearch(event) {
   event.preventDefault();
-  const form = event.currentTarget;
-  const query = form.elements.query.value.trim();
+  refs.resultContainer.innerHTML = '';
+  params.page = 1;
 
-  if (!query) {
+  refs.loader.classList.remove(hiddenClass);
+  refs.loadMoreBtn.classList.add(hiddenClass);
+  refs.loadMoreBtn.addEventListener('click', handleLoadMore);
+  const form = event.currentTarget;
+  params.query = form.elements.query.value.trim();
+
+  if (!params.query) {
+    refs.loader.classList.add(hiddenClass);
     return;
   }
-  console.log(query);
 
   try {
-    const responseData = await searchPicturesByParams(query);
-    console.log(responseData);
-    createMarkup(responseData.hits);
-    refs.loadMoreBtn.classList.remove('is-hidden');
+    const { hits, totalHits } = await searchPicturesByParams(params);
+
+    if (hits.length === 0) {
+      iziToast.error({
+        position: 'topRight',
+        message:
+          'Sorry, there are no images matching your search query. Please try again!',
+      });
+    }
+
+    params.maxPage = Math.ceil(totalHits / params.perPage);
+
+    createMarkup(hits);
+
+    if (hits.length > 0 && hits.length !== totalHits) {
+      refs.loadMoreBtn.classList.remove(hiddenClass);
+    }
+
+    if (params.page === params.maxPage) {
+      iziToast.info({
+        position: 'topRight',
+        message: "That's all we find!",
+      });
+    }
   } catch (err) {
-    console.log(err);
+    iziToast.error({
+      position: 'topRight',
+      message: 'Something wrong!',
+    });
   } finally {
     form.reset();
+    refs.loader.classList.add(hiddenClass);
   }
 }
 
-function searchPicturesByParams(query) {
+async function handleLoadMore() {
+  params.page += 1;
+  refs.loader.classList.remove(hiddenClass);
+  refs.loadMoreBtn.disabled = true;
+  try {
+    const { hits } = await searchPicturesByParams(params);
+
+    createMarkup(hits);
+    scrollDown();
+  } catch (err) {
+    iziToast.error({
+      position: 'topRight',
+      message: 'Something wrong!',
+    });
+  } finally {
+    refs.loader.classList.add(hiddenClass);
+    refs.loadMoreBtn.disabled = false;
+  }
+  if (params.page === params.maxPage) {
+    refs.loadMoreBtn.classList.add(hiddenClass);
+    refs.loadMoreBtn.removeEventListener('click', handleLoadMore);
+    iziToast.info({
+      position: 'topRight',
+      message: "That's all we find!",
+    });
+  }
+}
+
+const lightbox = new SimpleLightbox('.gallery a', {
+  captionsData: 'alt',
+  captionDelay: 250,
+});
+
+function searchPicturesByParams({ query, page = 1, perPage }) {
   return axios
     .get(`${BASE_URL}`, {
       params: {
@@ -52,49 +121,12 @@ function searchPicturesByParams(query) {
         image_type: 'photo',
         orientation: 'horizontal',
         safesearch: true,
-        per_page: 20,
-        page: 1,
+        per_page: perPage,
+        page,
       },
     })
-    .then(response => response.data)
-    .catch(error => {
-      throw new Error('Failed to fetch images');
-    });
+    .then(({ data }) => data);
 }
-
-// showLoader();
-
-//   searchPicturesByParams(picture)
-//     .then(data => {
-//       const pictures = data.hits;
-
-//       if (pictures.length === 0) {
-//         iziToast.error({
-//           position: 'topRight',
-//           message:
-//             'Sorry, there are no images matching your search query. Please try again!',
-//         });
-//       }
-
-//       createMarkup(pictures);
-//     })
-//     .catch(err => {
-//       console.log(err);
-//       iziToast.error({
-//         position: 'topRight',
-//         message: 'Failed to fetch images. Please try again later.',
-//       });
-//     })
-//     .finally(() => {
-//       form.reset();
-//       hideLoader();
-//     });
-//
-
-let lightbox = new SimpleLightbox('.gallery a', {
-  captionsData: 'alt',
-  captionDelay: 250,
-});
 
 function createMarkup(hits) {
   const markUp = hits
@@ -109,7 +141,7 @@ function createMarkup(hits) {
         downloads,
       }) => `<li class="gallery-item">
             <a href="${largeImageURL}">
-  <img class="gallery-image" src="${webformatURL}" alt="${tags}" width="370" heigth="300"></a>
+  <img class="gallery-image" src="${webformatURL}" alt="${tags}" width="360" heigth="200"></a>
   <div class="stats-block">
          <div class="stats">
              <h2 class="title">Likes</h2>
@@ -136,16 +168,15 @@ function createMarkup(hits) {
   lightbox.refresh();
 }
 
-function showLoader() {
-  const loader = document.querySelector('.loader');
-  if (loader) {
-    loader.classList.add('visible');
-  }
-}
-
-function hideLoader() {
-  const loader = document.querySelector('.loader');
-  if (loader) {
-    loader.classList.remove('visible');
+function scrollDown() {
+  if (params.page > 1) {
+    const scrollItem = document
+      .querySelector('.gallery-item')
+      .getBoundingClientRect();
+    window.scrollBy({
+      top: scrollItem.height * 2,
+      left: 0,
+      behavior: 'smooth',
+    });
   }
 }
