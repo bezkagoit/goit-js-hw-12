@@ -27,6 +27,13 @@ const params = {
 
 refs.form.addEventListener('submit', handleSearch);
 
+function handleError(message) {
+  iziToast.error({
+    position: 'topRight',
+    message: message,
+  });
+}
+
 async function handleSearch(event) {
   event.preventDefault();
   refs.resultContainer.innerHTML = '';
@@ -47,11 +54,9 @@ async function handleSearch(event) {
     const { hits, totalHits } = await searchPicturesByParams(params);
 
     if (hits.length === 0) {
-      iziToast.error({
-        position: 'topRight',
-        message:
-          'Sorry, there are no images matching your search query. Please try again!',
-      });
+      handleError(
+        'Sorry, there are no images matching your search query. Please try again!'
+      );
     }
 
     params.maxPage = Math.ceil(totalHits / params.perPage);
@@ -63,16 +68,10 @@ async function handleSearch(event) {
     }
 
     if (params.page === params.maxPage) {
-      iziToast.info({
-        position: 'topRight',
-        message: "That's all we find!",
-      });
+      handleError("That's all we find!");
     }
   } catch (err) {
-    iziToast.error({
-      position: 'topRight',
-      message: 'Something wrong!',
-    });
+    handleError('Something wrong!');
   } finally {
     form.reset();
     refs.loader.classList.add(hiddenClass);
@@ -89,10 +88,7 @@ async function handleLoadMore() {
     createMarkup(hits);
     scrollDown();
   } catch (err) {
-    iziToast.error({
-      position: 'topRight',
-      message: 'Something wrong!',
-    });
+    handleError('Something wrong!');
   } finally {
     refs.loader.classList.add(hiddenClass);
     refs.loadMoreBtn.disabled = false;
@@ -100,10 +96,8 @@ async function handleLoadMore() {
   if (params.page === params.maxPage) {
     refs.loadMoreBtn.classList.add(hiddenClass);
     refs.loadMoreBtn.removeEventListener('click', handleLoadMore);
-    iziToast.info({
-      position: 'topRight',
-      message: "That's all we find!",
-    });
+
+    handleError("That's all we find!");
   }
 }
 
@@ -164,7 +158,7 @@ function createMarkup(hits) {
 </li>`
     )
     .join('');
-  refs.resultContainer.innerHTML = markUp;
+  refs.resultContainer.insertAdjacentHTML('beforeend', markUp);
   lightbox.refresh();
 }
 
